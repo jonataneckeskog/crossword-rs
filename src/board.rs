@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::constants::{BOARD_SIZE, BoardPosition, EMPTY_TILE, TOTAL_SIZE};
 use crate::crossword_move::CrosswordMove;
 
