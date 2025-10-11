@@ -23,7 +23,7 @@ impl Gaddag {
             root: GaddagNode::new(),
         };
         for word in words {
-            gaddag.root.insert(word);
+            gaddag.root.insert_gaddag(word);
         }
         gaddag
     }
@@ -37,11 +37,35 @@ impl GaddagNode {
         }
     }
 
-    fn insert(&mut self, word: &String) {
-        let mut current_node = self;
-        for tile in word.chars() {
-            let idx = get_index(&tile);
+    // Creates paths that are then inserted
+    fn insert_gaddag(&mut self, word: &String) {
+        let chars: Vec<char> = word.chars().collect();
 
+        for i in 0..=chars.len() {
+            let mut path = Vec::new();
+
+            // reversed prefix
+            for &c in chars[..i].iter().rev() {
+                path.push(c);
+            }
+
+            // pivot
+            path.push('>');
+
+            // suffix
+            for &c in &chars[i..] {
+                path.push(c);
+            }
+
+            self.insert_path(&path);
+        }
+    }
+
+    fn insert_path(&mut self, path: &[char]) {
+        let mut current_node = self;
+
+        for &tile in path {
+            let idx = get_index(tile);
             current_node = current_node.children[idx]
                 .get_or_insert_with(|| Box::new(GaddagNode::new()))
                 .as_mut();
@@ -50,12 +74,12 @@ impl GaddagNode {
         current_node.is_word = true;
     }
 
-    pub fn has_child(&self, tile: &char) -> bool {
+    pub fn has_child(&self, tile: char) -> bool {
         let idx = get_index(tile);
         self.children[idx].is_some()
     }
 
-    pub fn get_child(&self, tile: &char) -> &Option<Box<GaddagNode>> {
+    pub fn get_child(&self, tile: char) -> &Option<Box<GaddagNode>> {
         let idx = get_index(tile);
         &self.children[idx]
     }

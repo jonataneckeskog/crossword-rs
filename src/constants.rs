@@ -11,7 +11,6 @@ pub struct LetterData {
 // -------------------------
 
 // Immutable mapping from character to LetterData (static)
-// Note: requires `phf` crate in Cargo.toml (e.g. phf = "0.10")
 pub static TILE_DATA: phf::Map<char, LetterData> = phf::phf_map! {
     'A' => LetterData { count: 9, score: 1 },
     'B' => LetterData { count: 2, score: 3 },
@@ -39,38 +38,45 @@ pub static TILE_DATA: phf::Map<char, LetterData> = phf::phf_map! {
     'X' => LetterData { count: 1, score: 8 },
     'Y' => LetterData { count: 2, score: 4 },
     'Z' => LetterData { count: 1, score: 10 },
-    '_' => LetterData { count: 2, score: 0 },
+    '?' => LetterData { count: 2, score: 0 },
 };
 
-/// Index -> char mapping (const array). KEEP this as the authoritative order for indices.
+/// Index -> char mapping (const array).
 pub const INDEX_TO_CHAR: [char; 27] = [
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
-    'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_',
+    'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '?',
 ];
 
 /// The number of unique tiles — derived from INDEX_TO_CHAR so it is always correct at compile time.
 pub const UNIQUE_TILES: usize = 27;
 
-/// A convenience const array with size `UNIQUE_TILES` so you can do:
-/// `let arr: [char; bag_constants::UNIQUE_TILES] = bag_constants::INDEX_TO_CHAR_ARRAY;`
-pub const INDEX_TO_CHAR_ARRAY: [char; UNIQUE_TILES] = INDEX_TO_CHAR;
+pub const CHAR_TO_INDEX_TABLE: [usize; 128] = {
+    let mut table = [27; 128]; // 27 = invalid index
+    let mut i = 0;
+    while i < INDEX_TO_CHAR.len() {
+        let c = INDEX_TO_CHAR[i] as usize;
+        table[c] = i;
+        i += 1;
+    }
+    table
+};
 
-pub fn get_index(letter: &char) -> usize {
-    INDEX_TO_CHAR
-        .iter()
-        .position(|&c| c == letter.to_ascii_uppercase())
-        .expect(&format!("Invalid tile: {}", letter))
+pub fn get_index(letter: char) -> usize {
+    let upper = letter.to_ascii_uppercase() as usize;
+    let index = CHAR_TO_INDEX_TABLE[upper];
+    if index >= UNIQUE_TILES {
+        panic!("Invalid tile: {}", letter);
+    }
+    index
 }
 
-pub fn is_valid_letter(letter: &char) -> bool {
+pub fn is_valid_letter(letter: char) -> bool {
     TILE_DATA.contains_key(&letter.to_ascii_uppercase())
 }
 
 // -------------------------
 // Board Constants
 // -------------------------
-
-pub type BoardPosition = u8;
 
 pub const NORMAL: u8 = 0;
 pub const DOUBLE_LETTER: u8 = 1;
@@ -82,12 +88,6 @@ pub const QUADRUPLE_WORD: u8 = 6;
 
 pub const BOARD_SIZE: usize = 15;
 pub const TOTAL_SIZE: usize = BOARD_SIZE * BOARD_SIZE;
-
-// Compile-time assertion
-const _: () = assert!(
-    TOTAL_SIZE <= BoardPosition::MAX as usize,
-    "BoardPosition type is too small for TOTAL_SIZE"
-);
 
 pub const TILE_BONUSES: [u8; TOTAL_SIZE] = [
     4, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 1, 0, 0, 4, 0, 3, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0,
@@ -103,6 +103,19 @@ pub const TILE_BONUSES: [u8; TOTAL_SIZE] = [
 // -------------------------
 // Game Constants
 // -------------------------
-pub const EMPTY_TILE: char = '.';
 pub const BINGO_BONUS: u32 = 50;
 pub const RACK_SIZE: usize = 7;
+
+// -------------------------
+// Engine constants
+// -------------------------
+pub const PIVOT: char = '>';
+pub const EMPTY_TILE: char = '.';
+pub const BLANK: char = '?';
+pub type BoardPosition = u8;
+
+// Compile-time assertion
+const _: () = assert!(
+    TOTAL_SIZE <= BoardPosition::MAX as usize,
+    "BoardPosition type is too small for TOTAL_SIZE"
+);
