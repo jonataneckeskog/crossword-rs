@@ -15,15 +15,10 @@ impl<'a> MoveGenerator<'a> {
         Self { gaddag }
     }
 
+    // Generator context is made and owned here
     pub fn generate_all_moves(&self, board: &Board, rack: &Rack) -> HashSet<CrosswordMove> {
-        // Initialize the empty moves set
-        let mut moves: HashSet<CrosswordMove> = HashSet::new();
-
-        // Store explored anchors
-        let mut explored_anchors: [bool; TOTAL_SIZE] = [false; TOTAL_SIZE];
-
-        // Create Immutable move context block
-        let move_context: GeneratorContext<'_> = GeneratorContext::new(board, rack);
+        // Create move context blocks
+        let mut gen_ctx: GeneratorContext = GeneratorContext::new(board, rack);
 
         // Start generating moves
         for index in 0..TOTAL_SIZE {
@@ -32,100 +27,75 @@ impl<'a> MoveGenerator<'a> {
             }
 
             // Generate moves for anchor
-            self.generate_moves_for_anchor(&mut moves, &mut explored_anchors, &move_context, index);
+            self.generate_moves_for_anchor(&mut gen_ctx, index);
 
             // Mark the anchor as explored
-            explored_anchors[index] = true;
+            gen_ctx.explored_anchors[index] = true;
         }
 
-        moves
+        gen_ctx.moves
     }
 
-    fn generate_moves_for_anchor(
-        &self,
-        moves: &mut HashSet<CrosswordMove>,
-        explored_anchors: &mut [bool; TOTAL_SIZE],
-        generator_ctx: &GeneratorContext,
-        anchor: usize,
-    ) {
+    // Recursion context is made and owned here
+    fn generate_moves_for_anchor(&self, gen_ctx: &mut GeneratorContext<'_>, anchor: usize) {
         let row = anchor / BOARD_SIZE;
         let col = anchor % BOARD_SIZE;
 
-        let mut hori_buffer = generator_ctx.hori_buffers[row].clone();
-        let mut vert_buffer = generator_ctx.vert_buffers[col].clone();
+        // Copy buffers (arrays implement Copy)
+        // This should be O(BOARD_SIZE), but it's still extremely fast. To
+        // get it to O(1) I could wrap the buffer in a Box "Box<[char, BOARD_SIZE]",
+        // but this is likely not faster for BOARD_SIZE = 15. Box forces it to be on
+        // the heap, which is where the overhead comes from.
+        let hori_buffer = gen_ctx.hori_buffers[row];
+        let vert_buffer = gen_ctx.vert_buffers[col];
 
-        let mut horizontal_ctx: GenerationContext =
-            GenerationContext::new(hori_buffer, Step::LEFT, true);
-        let mut vertical_ctx: GenerationContext =
-            GenerationContext::new(hori_buffer, Step::LEFT, true);
+        // Root is already a borrow, so it's fine to pass it directly
+        let root: &GaddagNode = self.gaddag.get_root();
+        let mut horizontal_ctx = RecursionContext::new(root, hori_buffer, Step::LEFT, true);
+        let mut vertical_ctx = RecursionContext::new(root, vert_buffer, Step::UP, false);
 
-        self.extend_backwards(
-            generator_ctx,
-            self.gaddag.get_root(),
-            hori_buffer,
-            row,
-            generator_ctx.rack.len,
-            &Step::LEFT,
-            true,
-        );
-        self.extend_backwards(
-            generator_ctx,
-            self.gaddag.get_root(),
-            vert_buffer,
-            col,
-            generator_ctx.rack.len,
-            &Step::UP,
-            false,
-        );
+        self.extend_backwards(gen_ctx, &mut horizontal_ctx);
+        self.extend_backwards(gen_ctx, &mut vertical_ctx);
     }
 
     fn extend_backwards(
         &self,
-        move_context: &GeneratorContext,
-        node: &GaddagNode,
-        buffer: [char; BOARD_SIZE],
-        depth: usize,
-        limit: usize,
-        step: &Step,
-        is_horizontal: bool,
+        gen_context: &mut GeneratorContext<'_>,
+        rec_context: &mut RecursionContext<'_>,
     ) {
         // Move generation logic starts here
     }
 
     fn extend_forwards(
         &self,
-        move_context: &GeneratorContext,
-        node: &GaddagNode,
-        buffer: &mut [usize; BOARD_SIZE],
-        depth: usize,
-        limit: usize,
-        step: &Step,
+        gen_context: &mut GeneratorContext<'_>,
+        rec_context: &mut RecursionContext<'_>,
     ) {
         // And continues here
     }
 
     // Helper functions
-    fn get_cross_line(
+    fn get_cross_line<'b>(
         &self,
-        move_context: &'a GeneratorContext,
+        gen_ctx: &'b GeneratorContext<'b>,
         depth: usize,
         is_horizontal: bool,
-    ) -> &'a [char; BOARD_SIZE] {
+    ) -> &'b [char; BOARD_SIZE] {
         if is_horizontal {
-            &move_context.hori_buffers[depth]
+            &gen_ctx.hori_buffers[depth]
         } else {
-            &move_context.vert_buffers[depth]
+            &gen_ctx.vert_buffers[depth]
         }
     }
 
     fn is_crossword_valid(
         &self,
-        move_context: &GeneratorContext,
+        gen_ctx: &GeneratorContext,
         placed_tile: char,
         depth: usize,
         is_horizontal: bool,
     ) -> bool {
-        let crossline = self.get_cross_line(move_context, depth, is_horizontal);
+        let crossline = self.get_cross_line(gen_ctx, depth, is_horizontal);
 
         let mut start = depth;
         let mut end = depth;
