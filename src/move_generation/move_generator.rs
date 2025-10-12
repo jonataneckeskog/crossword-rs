@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use crate::constants::{BOARD_SIZE, EMPTY_TILE, TOTAL_SIZE};
 use crate::core::{Board, CrosswordMove, Rack};
-use crate::move_generation::{gaddag::*, move_context::*, step::Step};
+use crate::move_generation::{gaddag::*, move_context::*};
 
 pub struct MoveGenerator<'a> {
     gaddag: &'a Gaddag,
@@ -51,8 +51,8 @@ impl<'a> MoveGenerator<'a> {
 
         // Root is already a borrow, so it's fine to pass it directly
         let root: &GaddagNode = self.gaddag.get_root();
-        let mut horizontal_ctx = RecursionContext::new(root, hori_buffer, Step::LEFT, true);
-        let mut vertical_ctx = RecursionContext::new(root, vert_buffer, Step::UP, false);
+        let mut horizontal_ctx = RecursionContext::new(root, hori_buffer, true);
+        let mut vertical_ctx = RecursionContext::new(root, vert_buffer, false);
 
         self.extend_backwards(gen_ctx, &mut horizontal_ctx);
         self.extend_backwards(gen_ctx, &mut vertical_ctx);

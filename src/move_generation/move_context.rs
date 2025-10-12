@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use crate::constants::{BOARD_SIZE, BoardPosition, EMPTY_TILE, RACK_SIZE, TOTAL_SIZE};
 use crate::core::{Board, CrosswordMove, Rack};
 use crate::move_generation::gaddag::GaddagNode;
-use crate::move_generation::step::Step;
 
 pub struct GeneratorContext<'a> {
     // Store values
@@ -29,7 +28,6 @@ pub struct RecursionContext<'a> {
     // Logic
     pub node: &'a GaddagNode,
     pub buffer: [char; BOARD_SIZE],
-    pub step: Step,
     pub is_horizontal: bool,
 }
 
@@ -60,19 +58,13 @@ impl<'a> GeneratorContext<'a> {
 }
 
 impl<'a> RecursionContext<'a> {
-    pub fn new(
-        node: &'a GaddagNode,
-        buffer: [char; BOARD_SIZE],
-        step: Step,
-        is_horizontal: bool,
-    ) -> Self {
+    pub fn new(node: &'a GaddagNode, buffer: [char; BOARD_SIZE], is_horizontal: bool) -> Self {
         Self {
             current_letters: [EMPTY_TILE; RACK_SIZE],
             current_positions: [0; RACK_SIZE],
             current_move_len: 0,
             node,
             buffer,
-            step,
             is_horizontal,
         }
     }
