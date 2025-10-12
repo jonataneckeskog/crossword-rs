@@ -3,7 +3,7 @@ use crate::core::CrosswordMove;
 use crate::move_generation::{MoveGenerator, gaddag::*, move_context::*};
 
 impl<'a> MoveGenerator<'a> {
-    fn get_cross_line<'b>(
+    pub fn get_cross_line<'b>(
         &self,
         gen_ctx: &'b GeneratorContext<'b>,
         depth: usize,
@@ -16,7 +16,7 @@ impl<'a> MoveGenerator<'a> {
         }
     }
 
-    fn is_crossword_valid(
+    pub fn is_crossword_valid(
         &self,
         gen_ctx: &GeneratorContext,
         placed_tile: char,
@@ -56,7 +56,7 @@ impl<'a> MoveGenerator<'a> {
         current_node.map_or(false, |node| node.is_word())
     }
 
-    fn record_move(&self, gen_ctx: &mut GeneratorContext, rec_ctx: &RecursionContext) {
+    pub fn record_move(&self, gen_ctx: &mut GeneratorContext, rec_ctx: &RecursionContext) {
         // Once again, just copying
         let crossword_move = CrosswordMove::from_arrays(
             rec_ctx.current_tiles,
