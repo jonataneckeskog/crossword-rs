@@ -1,13 +1,9 @@
-mod board;
 mod constants;
-mod crossword_move;
-mod gaddag;
-mod movegenerator;
-mod rack;
+mod core;
+mod move_generation;
 
-use crate::board::Board;
 use crate::constants::BoardPosition;
-use crate::crossword_move::CrosswordMove;
+use crate::core::{Board, CrosswordMove};
 
 // Currently just a simple make a move example
 fn main() {
