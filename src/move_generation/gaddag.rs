@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::constants::{UNIQUE_TILES, get_index};
+use crate::constants::{PIVOT, UNIQUE_TILES, get_index};
 
 /// A GADDAG trie structure for efficient word lookup and Scrabble-like move generation.
 pub struct Gaddag {
@@ -27,6 +27,10 @@ impl Gaddag {
         }
         gaddag
     }
+
+    pub fn get_root(&self) -> &GaddagNode {
+        &self.root
+    }
 }
 
 impl GaddagNode {
@@ -50,7 +54,7 @@ impl GaddagNode {
             }
 
             // pivot
-            path.push('>');
+            path.push(PIVOT);
 
             // suffix
             for &c in &chars[i..] {
@@ -79,9 +83,9 @@ impl GaddagNode {
         self.children[idx].is_some()
     }
 
-    pub fn get_child(&self, tile: char) -> &Option<Box<GaddagNode>> {
+    pub fn get_child(&self, tile: char) -> Option<&GaddagNode> {
         let idx = get_index(tile);
-        &self.children[idx]
+        self.children[idx].as_deref()
     }
 
     pub fn is_word(&self) -> bool {
