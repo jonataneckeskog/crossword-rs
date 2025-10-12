@@ -5,7 +5,7 @@ use crate::move_generation::{MoveGenerator, gaddag::*, move_context::*};
 impl<'a> MoveGenerator<'a> {
     pub fn get_cross_line<'b>(
         &self,
-        gen_ctx: &'b GeneratorContext<'b>,
+        gen_ctx: &'b GeneratorContext,
         depth: usize,
         is_horizontal: bool,
     ) -> &'b [char; BOARD_SIZE] {

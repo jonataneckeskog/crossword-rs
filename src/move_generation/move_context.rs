@@ -6,13 +6,10 @@ use crate::constants::{BOARD_SIZE, BoardPosition, EMPTY_TILE, RACK_SIZE, TOTAL_S
 use crate::core::{Board, CrosswordMove, Rack};
 use crate::move_generation::gaddag::GaddagNode;
 
-pub struct GeneratorContext<'a> {
+pub struct GeneratorContext {
     // Store values
     pub moves: HashSet<CrosswordMove>,
     pub explored_anchors: [bool; TOTAL_SIZE],
-
-    // Start rack
-    pub rack: &'a Rack,
 
     // Precomputer buffers
     pub hori_buffers: [[char; BOARD_SIZE]; BOARD_SIZE],
@@ -20,19 +17,21 @@ pub struct GeneratorContext<'a> {
 }
 
 pub struct RecursionContext<'a> {
-    // Quickly build moves
+    // Keep track of move
     pub current_tiles: [char; RACK_SIZE],
     pub current_positions: [BoardPosition; RACK_SIZE],
     pub current_move_len: u8,
 
-    // Logic
+    // Word building
     pub node: &'a GaddagNode,
+    pub rack: &'a mut Rack,
     pub buffer: [char; BOARD_SIZE],
+    pub depth: usize,
     pub is_horizontal: bool,
 }
 
-impl<'a> GeneratorContext<'a> {
-    pub fn new(board: &'a Board, rack: &'a Rack) -> Self {
+impl GeneratorContext {
+    pub fn new(board: &Board) -> Self {
         let moves = HashSet::new();
         let explored_anchors = [false; TOTAL_SIZE];
 
@@ -50,7 +49,6 @@ impl<'a> GeneratorContext<'a> {
         Self {
             moves,
             explored_anchors,
-            rack,
             hori_buffers,
             vert_buffers,
         }
@@ -58,13 +56,21 @@ impl<'a> GeneratorContext<'a> {
 }
 
 impl<'a> RecursionContext<'a> {
-    pub fn new(node: &'a GaddagNode, buffer: [char; BOARD_SIZE], is_horizontal: bool) -> Self {
+    pub fn new(
+        node: &'a GaddagNode,
+        rack: &'a mut Rack,
+        buffer: [char; BOARD_SIZE],
+        depth: usize,
+        is_horizontal: bool,
+    ) -> Self {
         Self {
             current_tiles: [EMPTY_TILE; RACK_SIZE],
+            rack,
             current_positions: [0; RACK_SIZE],
             current_move_len: 0,
             node,
             buffer,
+            depth,
             is_horizontal,
         }
     }

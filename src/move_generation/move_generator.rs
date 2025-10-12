@@ -18,9 +18,9 @@ impl<'a> MoveGenerator<'a> {
     }
 
     // Generator context is made and owned here
-    pub fn generate_all_moves(&self, board: &Board, rack: &Rack) -> HashSet<CrosswordMove> {
+    pub fn generate_all_moves(&self, board: &Board, rack: &mut Rack) -> HashSet<CrosswordMove> {
         // Create move context blocks
-        let mut gen_ctx: GeneratorContext = GeneratorContext::new(board, rack);
+        let mut gen_ctx: GeneratorContext = GeneratorContext::new(board);
 
         // Start generating moves
         for index in 0..TOTAL_SIZE {
@@ -29,7 +29,7 @@ impl<'a> MoveGenerator<'a> {
             }
 
             // Generate moves for anchor
-            self.generate_moves_for_anchor(&mut gen_ctx, index);
+            self.generate_moves_for_anchor(rack, &mut gen_ctx, index);
 
             // Mark the anchor as explored
             gen_ctx.explored_anchors[index] = true;
