@@ -21,7 +21,7 @@ pub struct GeneratorContext<'a> {
 
 pub struct RecursionContext<'a> {
     // Quickly build moves
-    pub current_letters: [char; RACK_SIZE],
+    pub current_tiles: [char; RACK_SIZE],
     pub current_positions: [BoardPosition; RACK_SIZE],
     pub current_move_len: u8,
 
@@ -60,7 +60,7 @@ impl<'a> GeneratorContext<'a> {
 impl<'a> RecursionContext<'a> {
     pub fn new(node: &'a GaddagNode, buffer: [char; BOARD_SIZE], is_horizontal: bool) -> Self {
         Self {
-            current_letters: [EMPTY_TILE; RACK_SIZE],
+            current_tiles: [EMPTY_TILE; RACK_SIZE],
             current_positions: [0; RACK_SIZE],
             current_move_len: 0,
             node,

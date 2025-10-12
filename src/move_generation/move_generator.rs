@@ -43,7 +43,7 @@ impl<'a> MoveGenerator<'a> {
 
         // Copy buffers (arrays implement Copy)
         // This should be O(BOARD_SIZE), but it's still extremely fast. To
-        // get it to O(1) I could wrap the buffer in a Box "Box<[char, BOARD_SIZE]",
+        // get it to O(1) I could wrap the buffer in a Box "Box<[char, BOARD_SIZE]>",
         // but this is likely not faster for BOARD_SIZE = 15. Box forces it to be on
         // the heap, which is where the overhead comes from.
         let hori_buffer = gen_ctx.hori_buffers[row];
@@ -126,5 +126,15 @@ impl<'a> MoveGenerator<'a> {
         }
 
         current_node.map_or(false, |node| node.is_word())
+    }
+
+    fn record_move(&self, gen_ctx: &mut GeneratorContext, rec_ctx: &RecursionContext) {
+        // Once again, just copying
+        let crossword_move = CrosswordMove::from_arrays(
+            rec_ctx.current_tiles,
+            rec_ctx.current_positions,
+            rec_ctx.current_move_len,
+        );
+        gen_ctx.moves.insert(crossword_move);
     }
 }

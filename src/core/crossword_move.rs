@@ -1,5 +1,6 @@
 use crate::constants::{BoardPosition, RACK_SIZE};
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CrosswordMove {
     tiles: [char; RACK_SIZE],
     positions: [BoardPosition; RACK_SIZE],
@@ -7,7 +8,11 @@ pub struct CrosswordMove {
 }
 
 impl CrosswordMove {
-    pub fn from_arrays(tiles: [char; RACK_SIZE], positions: [BoardPosition; RACK_SIZE], len: u8) -> Self {
+    pub fn from_arrays(
+        tiles: [char; RACK_SIZE],
+        positions: [BoardPosition; RACK_SIZE],
+        len: u8,
+    ) -> Self {
         Self {
             tiles,
             positions,
