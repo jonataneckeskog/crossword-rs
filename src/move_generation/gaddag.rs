@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::constants::{PIVOT, UNIQUE_TILES, get_index};
+use crate::constants::{PIVOT, TileBitboard, get_index};
 
 /// A GADDAG trie structure for efficient word lookup and Scrabble-like move generation.
 pub struct Gaddag {
@@ -12,9 +12,14 @@ pub struct Gaddag {
 /// - 'children': An array of optional child nodes, each corresponding to a valid
 ///   tile character. The tail node is the pivot (represented by '>') from which
 ///   suffixes are stored backwards.
+///
+/// # Notes
+/// - Letters at the start of the gaddag (from root) are all in reverse order. There is
+///   no pivot from root.
 pub struct GaddagNode {
     is_word: bool,
-    children: [Option<Box<GaddagNode>>; UNIQUE_TILES + 1],
+    children_mask: TileBitboard,
+    children_ptrs: Vec<Box<GaddagNode>>,
 }
 
 impl Gaddag {
@@ -37,7 +42,8 @@ impl GaddagNode {
     fn new() -> Self {
         Self {
             is_word: false,
-            children: Default::default(),
+            children_mask: 0,
+            children_ptrs: Vec::new(),
         }
     }
 
@@ -65,27 +71,50 @@ impl GaddagNode {
         }
     }
 
-    fn insert_path(&mut self, path: &[char]) {
-        let mut current_node = self;
+    pub fn insert_path(&mut self, path: &[char]) {
+        let mut node = self;
 
-        for &tile in path {
-            let idx = get_index(tile);
-            current_node = current_node.children[idx]
-                .get_or_insert_with(|| Box::new(GaddagNode::new()))
-                .as_mut();
+        for (i, &tile) in path.iter().enumerate() {
+            let idx = get_index(tile) as u32;
+            let bit: TileBitboard = 1 << idx;
+
+            // Count the number of children before this index
+            let pos = (node.children_mask & ((1 << idx) - 1)).count_ones() as usize;
+
+            // Check if the child exists
+            if node.children_mask & bit != 0 {
+                // Move to existing child
+                node = &mut node.children_ptrs[pos];
+            } else {
+                // Create new child node
+                let mut new_node = Box::new(GaddagNode::new());
+
+                // Mark as a word if this is the last character in the path
+                if i == path.len() - 1 {
+                    new_node.is_word = true;
+                }
+
+                // Insert at the correct position to maintain mask order
+                node.children_ptrs.insert(pos, new_node);
+                node.children_mask |= bit;
+
+                // Move to the new child
+                node = &mut node.children_ptrs[pos];
+            }
         }
-
-        current_node.is_word = true;
-    }
-
-    pub fn has_child(&self, tile: char) -> bool {
-        let idx = get_index(tile);
-        self.children[idx].is_some()
     }
 
     pub fn get_child(&self, tile: char) -> Option<&GaddagNode> {
-        let idx = get_index(tile);
-        self.children[idx].as_deref()
+        let idx = get_index(tile) as u32;
+        let bit: TileBitboard = 1 << idx;
+
+        if self.children_mask & bit == 0 {
+            return None;
+        }
+
+        // Count number of children before this tile to get vector index
+        let pos = (self.children_mask & ((1 << idx) - 1)).count_ones() as usize;
+        Some(&self.children_ptrs[pos])
     }
 
     pub fn is_word(&self) -> bool {
