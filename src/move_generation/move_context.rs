@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use crate::constants::{BOARD_SIZE, BoardPosition, EMPTY_TILE, RACK_SIZE, TOTAL_SIZE};
 use crate::core::{Board, CrosswordMove, Rack};
-use crate::move_generation::gaddag::{self, GaddagNode};
+use crate::move_generation::gaddag::GaddagNode;
 
 pub struct GeneratorContext {
     // Store values
