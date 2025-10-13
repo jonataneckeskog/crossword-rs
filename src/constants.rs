@@ -113,9 +113,14 @@ pub const PIVOT: char = '>';
 pub const EMPTY_TILE: char = '.';
 pub const BLANK: char = '?';
 pub type BoardPosition = u8;
+pub type TileBitboard = u32;
 
 // Compile-time assertion
 const _: () = assert!(
     TOTAL_SIZE <= BoardPosition::MAX as usize,
     "BoardPosition type is too small for TOTAL_SIZE"
+);
+const _: () = assert!(
+    UNIQUE_TILES <= std::mem::size_of::<TileBitboard>() * 8,
+    "TileBitboard type is too small for UNIQUE_TILES"
 );
