@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 
-use std::io::empty;
-
 use crate::constants::{BOARD_SIZE, EMPTY_TILE};
 use crate::core::Rack;
 use crate::move_generation::{gaddag::GaddagNode, move_context::*, move_generator::MoveGenerator};
