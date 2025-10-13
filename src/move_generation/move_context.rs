@@ -31,11 +31,6 @@ pub struct RecursionContext<'a> {
     pub buffer: [char; BOARD_SIZE],
     pub depth: usize,
     pub is_horizontal: bool,
-
-    // Store previous state
-    prev_node: Option<&'a GaddagNode>,
-    prev_idx: Option<usize>,
-    prev_is_forwards: Option<bool>,
 }
 
 impl GeneratorContext {
@@ -82,9 +77,6 @@ impl<'a> RecursionContext<'a> {
             buffer,
             depth,
             is_horizontal,
-            prev_node: None,
-            prev_idx: None,
-            prev_is_forwards: None,
         }
     }
 
@@ -100,10 +92,6 @@ impl<'a> RecursionContext<'a> {
 
     #[inline]
     pub fn extend(&mut self, idx: usize, tile: char, new_node: &'a GaddagNode, is_forwards: bool) {
-        // Save state for undo
-        self.prev_node = Some(self.node);
-        self.prev_idx = Some(idx);
-
         // Move
         self.current_tiles[self.depth] = tile;
         self.current_positions[self.depth] = if self.is_horizontal {
@@ -125,24 +113,20 @@ impl<'a> RecursionContext<'a> {
     }
 
     #[inline]
-    pub fn undo(&mut self) {
-        // Restore in reverse order
-        if let Some(idx) = self.prev_idx.take() {
-            self.depth = if self.prev_is_forwards.unwrap() {
-                self.depth - 1
-            } else {
-                self.depth + 1
-            };
-            self.buffer[self.depth] = EMPTY_TILE;
-            self.current_tiles[self.depth] = EMPTY_TILE;
-            self.current_positions[self.depth] = 0;
-            self.current_move_len -= 1;
+    pub fn undo(&mut self, idx: usize, previous_node: &'a GaddagNode, is_forwards: bool) {
+        // Recursion
+        self.depth = if is_forwards {
+            self.depth - 1
+        } else {
+            self.depth + 1
+        };
+        self.buffer[self.depth] = EMPTY_TILE;
+        self.node = previous_node;
 
-            self.rack.unmark_used(idx);
-
-            if let Some(prev_node) = self.prev_node.take() {
-                self.node = prev_node;
-            }
-        }
+        // Move
+        self.rack.unmark_used(idx);
+        self.current_move_len -= 1;
+        self.current_positions[self.depth] = 0;
+        self.current_tiles[self.depth] = EMPTY_TILE;
     }
 }
