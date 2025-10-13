@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use crate::constants::{BOARD_SIZE, BoardPosition, EMPTY_TILE, RACK_SIZE, TOTAL_SIZE};
 use crate::core::{Board, CrosswordMove, Rack};
-use crate::move_generation::gaddag::GaddagNode;
+use crate::move_generation::gaddag::{self, GaddagNode};
 
 pub struct GeneratorContext {
     // Store values
@@ -17,17 +17,25 @@ pub struct GeneratorContext {
 }
 
 pub struct RecursionContext<'a> {
+    // Anchor we are generating for
+    pub anchor: usize,
+
     // Keep track of move
     pub current_tiles: [char; RACK_SIZE],
     pub current_positions: [BoardPosition; RACK_SIZE],
     pub current_move_len: u8,
 
-    // Word building
+    // Recursion logic
     pub node: &'a GaddagNode,
     pub rack: &'a mut Rack,
     pub buffer: [char; BOARD_SIZE],
     pub depth: usize,
     pub is_horizontal: bool,
+
+    // Store previous state
+    prev_node: Option<&'a GaddagNode>,
+    prev_idx: Option<usize>,
+    prev_is_forwards: Option<bool>,
 }
 
 impl GeneratorContext {
@@ -57,6 +65,7 @@ impl GeneratorContext {
 
 impl<'a> RecursionContext<'a> {
     pub fn new(
+        anchor: usize,
         node: &'a GaddagNode,
         rack: &'a mut Rack,
         buffer: [char; BOARD_SIZE],
@@ -64,14 +73,76 @@ impl<'a> RecursionContext<'a> {
         is_horizontal: bool,
     ) -> Self {
         Self {
+            anchor,
             current_tiles: [EMPTY_TILE; RACK_SIZE],
-            rack,
             current_positions: [0; RACK_SIZE],
             current_move_len: 0,
             node,
+            rack,
             buffer,
             depth,
             is_horizontal,
+            prev_node: None,
+            prev_idx: None,
+            prev_is_forwards: None,
+        }
+    }
+
+    #[inline]
+    pub fn current_tile(&self) -> char {
+        self.buffer[self.depth]
+    }
+
+    #[inline]
+    pub fn current_tile_with_mod(&self, modifyer: i32) -> char {
+        self.buffer[((self.depth as i32) + modifyer) as usize]
+    }
+
+    #[inline]
+    pub fn extend(&mut self, idx: usize, tile: char, new_node: &'a GaddagNode, is_forwards: bool) {
+        // Save state for undo
+        self.prev_node = Some(self.node);
+        self.prev_idx = Some(idx);
+
+        // Move
+        self.current_tiles[self.depth] = tile;
+        self.current_positions[self.depth] = if self.is_horizontal {
+            (self.anchor + self.depth) as BoardPosition
+        } else {
+            (self.anchor + BOARD_SIZE * self.depth) as BoardPosition
+        };
+        self.current_move_len += 1;
+
+        // Recursion
+        self.node = new_node;
+        self.rack.mark_used(idx);
+        self.buffer[self.depth] = tile;
+        self.depth = if is_forwards {
+            self.depth + 1
+        } else {
+            self.depth - 1
+        }
+    }
+
+    #[inline]
+    pub fn undo(&mut self) {
+        // Restore in reverse order
+        if let Some(idx) = self.prev_idx.take() {
+            self.depth = if self.prev_is_forwards.unwrap() {
+                self.depth - 1
+            } else {
+                self.depth + 1
+            };
+            self.buffer[self.depth] = EMPTY_TILE;
+            self.current_tiles[self.depth] = EMPTY_TILE;
+            self.current_positions[self.depth] = 0;
+            self.current_move_len -= 1;
+
+            self.rack.unmark_used(idx);
+
+            if let Some(prev_node) = self.prev_node.take() {
+                self.node = prev_node;
+            }
         }
     }
 }
