@@ -41,6 +41,12 @@ impl<'a> MoveGenerator<'a> {
             return;
         }
 
+        // Encountered an already explored anchor, stop recursion
+        let anchor = ctx.position_at_depth();
+        if gen_ctx.explored_anchors[anchor] {
+            return;
+        }
+
         // Empty tile, try placing all letters
         if ctx.current_tile() == EMPTY_TILE {
             let tiles: Vec<_> = ctx.rack.available_tiles().collect(); // Cannot iterate over while changing

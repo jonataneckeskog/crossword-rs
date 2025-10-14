@@ -97,6 +97,15 @@ impl<'a> RecursionContext<'a> {
     }
 
     #[inline]
+    pub fn position_at_depth(&self) -> usize {
+        if self.is_horizontal {
+            self.anchor + self.depth()
+        } else {
+            self.anchor + BOARD_SIZE * self.depth()
+        }
+    }
+
+    #[inline]
     pub fn current_tile(&self) -> char {
         self.buffer[self.depth()]
     }
@@ -118,11 +127,8 @@ impl<'a> RecursionContext<'a> {
 
                 self.current_tiles[self.current_move_len as usize] = *tile;
 
-                self.current_positions[self.current_move_len as usize] = if self.is_horizontal {
-                    (self.anchor + self.depth()) as BoardPosition
-                } else {
-                    (self.anchor + BOARD_SIZE * self.depth()) as BoardPosition
-                };
+                self.current_positions[self.current_move_len as usize] =
+                    self.position_at_depth() as BoardPosition;
 
                 self.current_move_len += 1;
             }
