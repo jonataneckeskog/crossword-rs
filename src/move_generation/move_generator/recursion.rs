@@ -53,7 +53,7 @@ impl<'a> MoveGenerator<'a> {
                     let previous_node = ctx.node;
                     let action = ExtendAction::PlaceFromRack(idx, tile);
                     ctx.extend(&action, next_node);
-                    self.extend_forwards(gen_ctx, ctx);
+                    self.extend_backwards(gen_ctx, ctx);
                     ctx.undo(&action, previous_node);
                 }
             }
@@ -115,12 +115,13 @@ impl<'a> MoveGenerator<'a> {
                 let previous_node = ctx.node;
                 let action: ExtendAction = ExtendAction::TraverseExisting();
                 ctx.extend(&action, next_node);
-                self.extend_backwards(gen_ctx, ctx);
+                self.extend_forwards(gen_ctx, ctx);
                 ctx.undo(&action, previous_node);
             }
             return;
         }
 
+        // Record move if conditions are met
         if ctx.node.is_word() {
             self.record_move(gen_ctx, ctx);
         }
