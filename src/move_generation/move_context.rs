@@ -29,8 +29,16 @@ pub struct RecursionContext<'a> {
     pub node: &'a GaddagNode,
     pub rack: &'a mut Rack,
     pub buffer: [char; BOARD_SIZE],
-    pub depth: usize,
+    pub depth: i32,
     pub is_horizontal: bool,
+    pub is_forwards: bool,
+}
+
+#[derive(Debug)]
+pub enum ExtendAction {
+    PlaceFromRack(usize, char),
+    TraverseExisting(),
+    TraversePivot(),
 }
 
 impl GeneratorContext {
@@ -64,8 +72,9 @@ impl<'a> RecursionContext<'a> {
         node: &'a GaddagNode,
         rack: &'a mut Rack,
         buffer: [char; BOARD_SIZE],
-        depth: usize,
+        depth: i32,
         is_horizontal: bool,
+        is_forwards: bool,
     ) -> Self {
         Self {
             anchor,
@@ -77,56 +86,104 @@ impl<'a> RecursionContext<'a> {
             buffer,
             depth,
             is_horizontal,
+            is_forwards,
         }
+    }
+
+    #[inline]
+    // Returns depth as a usize (for convenience)
+    pub fn depth(&self) -> usize {
+        self.depth as usize
     }
 
     #[inline]
     pub fn current_tile(&self) -> char {
-        self.buffer[self.depth]
+        self.buffer[self.depth()]
     }
 
     #[inline]
     pub fn current_tile_with_mod(&self, modifyer: i32) -> char {
-        self.buffer[((self.depth as i32) + modifyer) as usize]
+        self.buffer[(self.depth + modifyer) as usize]
     }
 
-    #[inline]
-    pub fn extend(&mut self, idx: usize, tile: char, new_node: &'a GaddagNode, is_forwards: bool) {
-        // Move
-        self.current_tiles[self.depth] = tile;
-        self.current_positions[self.depth] = if self.is_horizontal {
-            (self.anchor + self.depth) as BoardPosition
-        } else {
-            (self.anchor + BOARD_SIZE * self.depth) as BoardPosition
-        };
-        self.current_move_len += 1;
-
-        // Recursion
+    pub fn extend(&mut self, action: &ExtendAction, new_node: &'a GaddagNode) {
+        // Node always updates
         self.node = new_node;
-        self.rack.mark_used(idx);
-        self.buffer[self.depth] = tile;
-        self.depth = if is_forwards {
+
+        match action {
+            ExtendAction::PlaceFromRack(idx, tile) => {
+                // Update buffer, rack and move
+                self.rack.mark_used(*idx);
+                self.buffer[self.depth()] = *tile;
+
+                self.current_tiles[self.current_move_len as usize] = *tile;
+
+                self.current_positions[self.current_move_len as usize] = if self.is_horizontal {
+                    (self.anchor + self.depth()) as BoardPosition
+                } else {
+                    (self.anchor + BOARD_SIZE * self.depth()) as BoardPosition
+                };
+
+                self.current_move_len += 1;
+            }
+            ExtendAction::TraverseExisting() => {}
+            ExtendAction::TraversePivot() => {
+                self.is_forwards = !self.is_forwards;
+                return;
+            }
+        }
+
+        // Update depth
+        self.depth = if self.is_forwards {
             self.depth + 1
         } else {
-            self.depth - 1
+            self.depth.saturating_sub(1)
+        };
+    }
+
+    pub fn undo(&mut self, action: &ExtendAction, previous_node: &'a GaddagNode) {
+        // Update node
+        self.node = previous_node;
+
+        // Update buffer
+        match action {
+            ExtendAction::TraversePivot() => {
+                self.is_forwards = !self.is_forwards;
+                return;
+            }
+            _ => {
+                self.depth = if self.is_forwards {
+                    self.depth.saturating_sub(1)
+                } else {
+                    self.depth + 1
+                };
+            }
+        }
+
+        // Handle cleanup for PlaceFromRack
+        if let ExtendAction::PlaceFromRack(idx, _) = action {
+            self.rack.unmark_used(*idx);
+            self.buffer[self.depth()] = EMPTY_TILE;
+            self.current_move_len -= 1;
+            self.current_positions[self.current_move_len as usize] = 0;
+            self.current_tiles[self.current_move_len as usize] = EMPTY_TILE;
         }
     }
 
-    #[inline]
-    pub fn undo(&mut self, idx: usize, previous_node: &'a GaddagNode, is_forwards: bool) {
-        // Recursion
-        self.depth = if is_forwards {
-            self.depth - 1
-        } else {
-            self.depth + 1
-        };
-        self.buffer[self.depth] = EMPTY_TILE;
-        self.node = previous_node;
+    fn debug_log(ctx: &RecursionContext, action: &ExtendAction) {
+        println!(
+            "[DEBUG] action={:?}, depth={}, anchor={}, is_horizontal={}, is_forwards={}",
+            action, ctx.depth, ctx.anchor, ctx.is_horizontal, ctx.is_forwards
+        );
 
-        // Move
-        self.rack.unmark_used(idx);
-        self.current_move_len -= 1;
-        self.current_positions[self.depth] = 0;
-        self.current_tiles[self.depth] = EMPTY_TILE;
+        // Print current buffer row/column
+        println!("Buffer: {:?}", ctx.buffer);
+
+        // Print current move so far
+        if ctx.current_move_len > 0 {
+            let tiles: Vec<_> = ctx.current_tiles[..ctx.current_move_len as usize].to_vec();
+            let positions: Vec<_> = ctx.current_positions[..ctx.current_move_len as usize].to_vec();
+            println!("Move so far: {:?} at positions {:?}", tiles, positions);
+        }
     }
 }
