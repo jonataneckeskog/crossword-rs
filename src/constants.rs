@@ -115,6 +115,9 @@ pub const BLANK: char = '?';
 pub type BoardPosition = u8;
 pub type TileBitboard = u32;
 
+// Use the highest bit of TileBitboard to represent the pivot
+pub const PIVOT_BIT_IDX: TileBitboard = TileBitboard::BITS - 1;
+
 // Compile-time assertion
 const _: () = assert!(
     TOTAL_SIZE <= BoardPosition::MAX as usize,

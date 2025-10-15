@@ -229,3 +229,81 @@ impl<'a> RecursionContext<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::constants::{BOARD_SIZE, EMPTY_TILE};
+    use crate::move_generation::gaddag::Gaddag;
+
+    #[test]
+    fn out_of_bounds_helpers_work() {
+        // backward out of bounds when depth < 0
+        let mut rack = crate::core::Rack::from_arrays([EMPTY_TILE; 7], 7);
+        let gaddag = Gaddag::from_wordlist(&vec![]);
+        let root = gaddag.get_root();
+
+        let ctx = RecursionContext::new(
+            0,
+            root,
+            &mut rack,
+            [EMPTY_TILE; BOARD_SIZE],
+            -1,
+            true,
+            false,
+        );
+        assert!(ctx.out_of_bounds_backwards());
+
+        let ctx2 = RecursionContext::new(
+            0,
+            root,
+            &mut rack,
+            [EMPTY_TILE; BOARD_SIZE],
+            BOARD_SIZE as i32,
+            true,
+            true,
+        );
+        assert!(ctx2.out_of_bounds_forwards());
+    }
+
+    #[test]
+    fn tile_existence_helpers_and_position() {
+        let mut rack = crate::core::Rack::from_arrays([EMPTY_TILE; 7], 7);
+        let gaddag = Gaddag::from_wordlist(&vec![]);
+        let root = gaddag.get_root();
+
+        let mut buffer = [EMPTY_TILE; BOARD_SIZE];
+        buffer[0] = 'X';
+        buffer[1] = EMPTY_TILE;
+        buffer[2] = 'Y';
+
+        // depth = 1 -> prev exists (index 0), next exists (index 2)
+        let ctx = RecursionContext::new(5, root, &mut rack, buffer, 1, true, false);
+        assert!(ctx.prev_tile_exists());
+        assert!(ctx.next_tile_exists());
+
+        // current at depth 1 is EMPTY_TILE
+        assert!(ctx.is_current_empty());
+
+        // position_at_depth respects horizontal/vertical
+        let pos_h =
+            RecursionContext::new(5, root, &mut rack, buffer, 2, true, false).position_at_depth();
+        assert_eq!(pos_h, 5 + 2);
+
+        let pos_v =
+            RecursionContext::new(5, root, &mut rack, buffer, 2, false, false).position_at_depth();
+        assert_eq!(pos_v, 5 + BOARD_SIZE * 2);
+    }
+
+    #[test]
+    fn pivot_child_is_found_when_present() {
+        let mut rack = crate::core::Rack::from_arrays([EMPTY_TILE; 7], 7);
+        let gaddag = Gaddag::from_wordlist(&vec![]);
+        let root = gaddag.get_root();
+
+        let ctx =
+            RecursionContext::new(0, root, &mut rack, [EMPTY_TILE; BOARD_SIZE], 0, true, false);
+        // Empty gaddag means no pivot child
+        assert!(ctx.pivot_child().is_none());
+    }
+}

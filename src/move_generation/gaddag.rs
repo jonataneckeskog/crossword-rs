@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::constants::{PIVOT, TileBitboard, get_index};
+use crate::constants::{PIVOT, PIVOT_BIT_IDX, TileBitboard, get_index};
 
 /// A GADDAG trie structure for efficient word lookup and Scrabble-like move generation.
 pub struct Gaddag {
@@ -75,11 +75,19 @@ impl GaddagNode {
         let mut node = self;
 
         for (i, &tile) in path.iter().enumerate() {
-            let idx = get_index(tile) as u32;
-            let bit: TileBitboard = 1 << idx;
+            // PIVOT is not part of the normal tile index table. Treat it as a
+            // reserved high bit so the gaddag can store a pivot child without
+            // changing the global get_index behavior.
+            let idx = if tile == PIVOT {
+                PIVOT_BIT_IDX
+            } else {
+                get_index(tile) as u32
+            };
+            let bit: TileBitboard = (1 as TileBitboard) << idx;
 
             // Count the number of children before this index
-            let pos = (node.children_mask & ((1 << idx) - 1)).count_ones() as usize;
+            let lower_mask: TileBitboard = ((1 as TileBitboard) << idx) - 1;
+            let pos = (node.children_mask & lower_mask).count_ones() as usize;
 
             // Check if the child exists
             if node.children_mask & bit != 0 {
@@ -105,19 +113,90 @@ impl GaddagNode {
     }
 
     pub fn get_child(&self, tile: char) -> Option<&GaddagNode> {
-        let idx = get_index(tile) as u32;
-        let bit: TileBitboard = 1 << idx;
+        let idx = if tile == PIVOT {
+            PIVOT_BIT_IDX
+        } else {
+            get_index(tile) as u32
+        };
+        let bit: TileBitboard = (1 as TileBitboard) << idx;
 
         if self.children_mask & bit == 0 {
             return None;
         }
 
         // Count number of children before this tile to get vector index
-        let pos = (self.children_mask & ((1 << idx) - 1)).count_ones() as usize;
+        let lower_mask: TileBitboard = ((1 as TileBitboard) << idx) - 1;
+        let pos = (self.children_mask & lower_mask).count_ones() as usize;
         Some(&self.children_ptrs[pos])
     }
 
     pub fn is_word(&self) -> bool {
         self.is_word
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn traverse<'a>(node: &'a GaddagNode, path: &[char]) -> Option<&'a GaddagNode> {
+        let mut cur: &'a GaddagNode = node;
+        for &c in path {
+            cur = cur.get_child(c)?;
+        }
+        Some(cur)
+    }
+
+    #[test]
+    fn single_word_basic_paths() {
+        // Insert a simple path C A T (no pivot) using insert_path directly to avoid
+        // depending on PIVOT handling in insert_gaddag.
+        let mut root = GaddagNode::new();
+        root.insert_path(&['C', 'A', 'T']);
+
+        // Check full path exists and is marked as a word
+        let n = traverse(&root, &['C', 'A', 'T']).expect("path should exist");
+        assert!(n.is_word(), "CAT should be a word");
+
+        // Check prefix nodes exist but are not words (C and CA)
+        let c = traverse(&root, &['C']).expect("C node should exist");
+        assert!(!c.is_word(), "C should not be marked as a word");
+
+        let ca = traverse(&root, &['C', 'A']).expect("CA node should exist");
+        assert!(!ca.is_word(), "CA should not be marked as a word");
+
+        // Non-existing child
+        assert!(traverse(&root, &['C', 'X']).is_none());
+    }
+
+    #[test]
+    fn multiple_words_shared_nodes() {
+        // Use direct insert_path to create CAT and CATS without pivots
+        let mut root = GaddagNode::new();
+        root.insert_path(&['C', 'A', 'T']);
+        root.insert_path(&['C', 'A', 'T', 'S']);
+
+        // CAT present
+        let cat = traverse(&root, &['C', 'A', 'T']).expect("CAT path");
+        assert!(cat.is_word(), "CAT should be present as a word");
+
+        // CATS present (longer)
+        let cats = traverse(&root, &['C', 'A', 'T', 'S']).expect("CATS path");
+        assert!(cats.is_word(), "CATS should be present as a word");
+
+        // Ensure CAT node is still a word (prefix)
+        assert!(
+            cat.is_word(),
+            "CAT should remain a word after inserting CATS"
+        );
+    }
+
+    #[test]
+    fn insert_path_marks_word() {
+        // Directly use insert_path on a fresh node
+        let mut node = GaddagNode::new();
+        node.insert_path(&['M', 'A', 'N']);
+        let n = traverse(&node, &['M', 'A', 'N']).expect("MAN path");
+        assert!(n.is_word(), "Inserted path should be marked as a word");
     }
 }
