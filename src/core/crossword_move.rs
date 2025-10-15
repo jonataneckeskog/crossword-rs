@@ -20,6 +20,11 @@ impl CrosswordMove {
         }
     }
 
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.len as usize
+    }
+
     pub fn iter(&self) -> MoveIterator<'_> {
         MoveIterator {
             move_ref: self,
