@@ -22,6 +22,12 @@ impl<'a> MoveGenerator<'a> {
         // Create move context blocks
         let mut gen_ctx: GeneratorContext = GeneratorContext::new(board);
 
+        if board.is_empty() {
+            let center = TOTAL_SIZE / 2;
+            self.generate_moves_for_anchor(rack, &mut gen_ctx, center);
+            return gen_ctx.moves;
+        }
+
         // Start generating moves
         for index in 0..TOTAL_SIZE {
             if !board.is_anchor(index) {
