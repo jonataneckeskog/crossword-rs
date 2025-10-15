@@ -36,6 +36,59 @@ impl Gaddag {
     pub fn get_root(&self) -> &GaddagNode {
         &self.root
     }
+
+    /// Check whether the exact word exists in the GADDAG.
+    ///
+    /// This tests every GADDAG path representation for `word` by inserting the
+    /// pivot at every possible position: for i in 0..=len, the path is
+    /// reversed(prefix) + pivot + suffix. If any such path ends at a node
+    /// marked as a word, the function returns true.
+    pub fn is_word(&self, word: &str) -> bool {
+        let chars: Vec<char> = word.chars().collect();
+
+        // Try pivot at every possible split position
+        for i in 0..=chars.len() {
+            let mut node = self.get_root();
+            let mut ok = true;
+
+            // reversed prefix (chars[..i].rev())
+            for &c in chars[..i].iter().rev() {
+                if let Some(child) = node.get_child(c) {
+                    node = child;
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if !ok {
+                continue;
+            }
+
+            // pivot
+            if let Some(child) = node.get_child(PIVOT) {
+                node = child;
+            } else {
+                continue;
+            }
+
+            // suffix (chars[i..])
+            for &c in &chars[i..] {
+                if let Some(child) = node.get_child(c) {
+                    node = child;
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if ok && node.is_word() {
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
 impl GaddagNode {
@@ -237,5 +290,22 @@ mod tests {
             cat.is_word(),
             "CAT should be marked as a word even when inserted after CATS"
         );
+    }
+
+    #[test]
+    fn gaddag_is_word_method() {
+        // Build a gaddag from a small word list and test positives and negatives
+        let words = vec!["CAT".to_string(), "CATS".to_string(), "DOG".to_string()];
+        let g = Gaddag::from_wordlist(&words);
+
+        // Positive cases
+        assert!(g.is_word("CAT"), "CAT should be found by is_word");
+        assert!(g.is_word("CATS"), "CATS should be found by is_word");
+        assert!(g.is_word("DOG"), "DOG should be found by is_word");
+
+        // Negative cases
+        assert!(!g.is_word("DO"), "DO is a prefix but not a word");
+        assert!(!g.is_word("ACT"), "ACT is not in the wordlist");
+        assert!(!g.is_word(""), "Empty string should not be found");
     }
 }
