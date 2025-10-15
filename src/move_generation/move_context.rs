@@ -306,4 +306,93 @@ mod tests {
         // Empty gaddag means no pivot child
         assert!(ctx.pivot_child().is_none());
     }
+
+    #[test]
+    fn extend_and_undo_place_from_rack_forward() {
+        use crate::constants::{BOARD_SIZE, RACK_SIZE};
+
+        // Prepare a rack with one tile at index 2
+        let mut tiles = [EMPTY_TILE; RACK_SIZE];
+        tiles[2] = 'B';
+        let mut rack = crate::core::Rack::from_arrays(tiles, 1);
+
+        // Empty gaddag root is sufficient for these tests
+        let gaddag = Gaddag::from_wordlist(&vec![]);
+        let root = gaddag.get_root();
+
+        let buffer = [EMPTY_TILE; BOARD_SIZE];
+        let anchor = 10usize;
+        let mut ctx = RecursionContext::new(anchor, root, &mut rack, buffer, 0, true, true);
+
+        // Keep previous node pointer for undo
+        let previous_node = ctx.node;
+
+        // Perform place-from-rack extension
+        ctx.extend(&ExtendAction::PlaceFromRack(2, 'B'), root);
+
+        // After placing: rack.len decreased, buffer updated, move recorded, depth advanced
+        assert_eq!(ctx.current_move_len, 1);
+        assert_eq!(ctx.current_tiles[0], 'B');
+        assert_eq!(ctx.current_positions[0], anchor as BoardPosition);
+        assert_eq!(ctx.buffer[0], 'B');
+
+        // Depth should have advanced by 1 (forwards)
+        assert_eq!(ctx.depth(), 1);
+
+        // Undo the placement
+        ctx.undo(&ExtendAction::PlaceFromRack(2, 'B'), previous_node);
+
+        // After undo: depth back, rack restored, buffer and move cleared
+        assert_eq!(ctx.depth(), 0);
+        assert_eq!(ctx.current_move_len, 0);
+        assert_eq!(ctx.buffer[0], EMPTY_TILE);
+        assert_eq!(ctx.current_tiles[0], EMPTY_TILE);
+        assert_eq!(ctx.current_positions[0], 0);
+    }
+
+    #[test]
+    fn traverse_pivot_toggles_and_undo_restores_direction() {
+        let mut rack = crate::core::Rack::from_arrays([EMPTY_TILE; 7], 7);
+        let gaddag = Gaddag::from_wordlist(&vec![]);
+        let root = gaddag.get_root();
+
+        let mut ctx =
+            RecursionContext::new(0, root, &mut rack, [EMPTY_TILE; BOARD_SIZE], 3, true, true);
+
+        let prev_depth = ctx.depth();
+        let prev_dir = ctx.is_forwards;
+
+        // Extend with pivot should flip direction and not change depth
+        ctx.extend(&ExtendAction::TraversePivot(), root);
+        assert_eq!(ctx.depth(), prev_depth);
+        assert_eq!(ctx.is_forwards, !prev_dir);
+
+        // Undo pivot should flip direction back and leave depth unchanged
+        ctx.undo(&ExtendAction::TraversePivot(), root);
+        assert_eq!(ctx.is_forwards, prev_dir);
+        assert_eq!(ctx.depth(), prev_depth);
+    }
+
+    #[test]
+    fn generator_context_buffers_reflect_board() {
+        use crate::core::Board;
+
+        let mut board = Board::new();
+        // Place two tiles at different positions
+        board.place('X', 0 as BoardPosition);
+        board.place('Y', 17 as BoardPosition); // row 1, col 2
+
+        let ctx = GeneratorContext::new(&board);
+
+        // Check horizontal buffer (rows)
+        let x0 = ctx.hori_buffers[0][0];
+        assert_eq!(x0, 'X');
+
+        // position 17 -> row = 17 / 15 = 1, col = 2
+        assert_eq!(ctx.hori_buffers[1][2], 'Y');
+
+        // Vertical buffers are transposed
+        assert_eq!(ctx.vert_buffers[0][0], 'X');
+        assert_eq!(ctx.vert_buffers[2][1], 'Y');
+    }
 }
