@@ -65,4 +65,37 @@ impl<'a> MoveGenerator<'a> {
         );
         gen_ctx.moves.insert(crossword_move);
     }
+
+    pub fn handle_empty_tile(&self, gen_ctx: &mut GeneratorContext, ctx: &'a mut RecursionContext) {
+        let tiles: Vec<_> = ctx.rack.available_tiles().collect(); // Cannot iterate over while changing
+        for (idx, tile) in tiles {
+            if !self.is_crossword_valid(gen_ctx, tile, ctx.depth(), ctx.is_horizontal) {
+                continue;
+            }
+
+            if let Some(next_node) = ctx.node.get_child(tile) {
+                let previous_node = ctx.node;
+                let action = ExtendAction::PlaceFromRack(idx, tile);
+                ctx.extend(&action, next_node);
+                self.extend_backwards(gen_ctx, ctx);
+                ctx.undo(&action, previous_node);
+            }
+        }
+    }
+
+    pub fn follow_existing_tiles(
+        &self,
+        gen_ctx: &mut GeneratorContext,
+        ctx: &'a mut RecursionContext,
+    ) {
+        let step = if ctx.is_forwards { 1 } else { -1 };
+        let tile = ctx.current_tile_with_mod(step);
+        if let Some(next_node) = ctx.node.get_child(tile) {
+            let previous_node = ctx.node;
+            let action: ExtendAction = ExtendAction::TraverseExisting();
+            ctx.extend(&action, next_node);
+            self.extend_backwards(gen_ctx, ctx);
+            ctx.undo(&action, previous_node);
+        }
+    }
 }

@@ -15,11 +15,6 @@ impl<'a> MoveGenerator<'a> {
         let row = anchor / BOARD_SIZE;
         let col = anchor % BOARD_SIZE;
 
-        // Copy buffers (arrays implement Copy)
-        // This should be O(BOARD_SIZE), but it's still extremely fast. To
-        // get it to O(1) I could wrap the buffer in a Box "Box<[char]>",
-        // but this is likely not faster for BOARD_SIZE = 15. Box forces it to be on
-        // the heap, which is where the overhead comes from.
         let hori_buffer = gen_ctx.hori_buffers[row];
         let vert_buffer = gen_ctx.vert_buffers[col];
 
@@ -35,7 +30,7 @@ impl<'a> MoveGenerator<'a> {
         self.extend_backwards(gen_ctx, &mut vertical_ctx);
     }
 
-    fn extend_backwards(&self, gen_ctx: &mut GeneratorContext, ctx: &mut RecursionContext<'_>) {
+    pub fn extend_backwards(&self, gen_ctx: &mut GeneratorContext, ctx: &mut RecursionContext<'_>) {
         // Initial out of bounds check
         if ctx.depth < 0 {
             return;
@@ -47,39 +42,15 @@ impl<'a> MoveGenerator<'a> {
             return;
         }
 
-        // Empty tile, try placing all letters
         if ctx.current_tile() == EMPTY_TILE {
-            let tiles: Vec<_> = ctx.rack.available_tiles().collect(); // Cannot iterate over while changing
-            for (idx, tile) in tiles {
-                if !self.is_crossword_valid(gen_ctx, tile, ctx.depth(), ctx.is_horizontal) {
-                    continue;
-                }
-
-                if let Some(next_node) = ctx.node.get_child(tile) {
-                    let previous_node = ctx.node;
-                    let action = ExtendAction::PlaceFromRack(idx, tile);
-                    ctx.extend(&action, next_node);
-                    self.extend_backwards(gen_ctx, ctx);
-                    ctx.undo(&action, previous_node);
-                }
-            }
-            return;
+            return self.handle_empty_tile(gen_ctx, ctx);
         }
 
-        // If the cell to the left is an occupied board cell, we must follow it.
         if ctx.depth > 0 && ctx.current_tile_with_mod(-1) != EMPTY_TILE {
-            let tile = ctx.current_tile_with_mod(-1);
-            if let Some(next_node) = ctx.node.get_child(tile) {
-                let previous_node = ctx.node;
-                let action: ExtendAction = ExtendAction::TraverseExisting();
-                ctx.extend(&action, next_node);
-                self.extend_backwards(gen_ctx, ctx);
-                ctx.undo(&action, previous_node);
-            }
-            return;
+            return self.follow_existing_tiles(gen_ctx, ctx);
         }
 
-        // No more backwards extentions, and we have: prefix is complete -> extend forward
+        // No more backwards extentions, and we have: prefix is complete -> try extend forward
         if let Some(pivot_node) = ctx.node.get_child(PIVOT) {
             let previous_node = ctx.node;
             let action = ExtendAction::TraversePivot();
@@ -87,49 +58,40 @@ impl<'a> MoveGenerator<'a> {
             self.extend_forwards(gen_ctx, ctx);
             ctx.undo(&action, previous_node);
         }
+
+        // Go to the empty square before the word
+        // Note: Node is never updated here
+        let previous_node = ctx.node;
+        let action = ExtendAction::TraverseExisting();
+        ctx.extend(&action, previous_node);
+        self.extend_backwards(gen_ctx, ctx);
+        ctx.undo(&action, previous_node);
     }
 
-    fn extend_forwards(&self, gen_ctx: &mut GeneratorContext, ctx: &mut RecursionContext<'_>) {
+    pub fn extend_forwards(&self, gen_ctx: &mut GeneratorContext, ctx: &mut RecursionContext<'_>) {
         // Initial bounds check
         if ctx.depth() >= BOARD_SIZE {
             return;
         }
 
-        // Empty tile, try placing letters
         if ctx.current_tile() == EMPTY_TILE {
-            let tiles: Vec<_> = ctx.rack.available_tiles().collect(); // Cannot iterate over while changing
-            for (idx, tile) in tiles {
-                if !self.is_crossword_valid(gen_ctx, tile, ctx.depth(), ctx.is_horizontal) {
-                    continue;
-                }
-
-                if let Some(next_node) = ctx.node.get_child(tile) {
-                    let previous_node = ctx.node;
-                    let action = ExtendAction::PlaceFromRack(idx, tile);
-                    ctx.extend(&action, next_node);
-                    self.extend_forwards(gen_ctx, ctx);
-                    ctx.undo(&action, previous_node);
-                }
-            }
-            return;
+            return self.handle_empty_tile(gen_ctx, ctx);
         }
 
-        // If the cell to the right is an occupied board cell, we must follow it.
         if ctx.depth() + 1 < BOARD_SIZE && ctx.current_tile_with_mod(1) != EMPTY_TILE {
-            let tile = ctx.current_tile_with_mod(1);
-            if let Some(next_node) = ctx.node.get_child(tile) {
-                let previous_node = ctx.node;
-                let action: ExtendAction = ExtendAction::TraverseExisting();
-                ctx.extend(&action, next_node);
-                self.extend_forwards(gen_ctx, ctx);
-                ctx.undo(&action, previous_node);
-            }
-            return;
+            return self.handle_empty_tile(gen_ctx, ctx);
         }
 
         // Record move if conditions are met
         if ctx.node.is_word() {
             self.record_move(gen_ctx, ctx);
         }
+
+        // Go to the next (empty) square without updating node
+        let previous_node = ctx.node;
+        let action = ExtendAction::TraverseExisting();
+        ctx.extend(&action, previous_node);
+        self.extend_forwards(gen_ctx, ctx);
+        ctx.undo(&action, previous_node);
     }
 }
