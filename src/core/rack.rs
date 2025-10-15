@@ -24,7 +24,12 @@ impl Rack {
     }
 
     #[inline]
-    pub fn is_used(&self, idx: usize) -> bool {
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    #[inline]
+    fn is_index_used(&self, idx: usize) -> bool {
         (self.used_mask & (1 << idx)) != 0
     }
 
@@ -46,7 +51,7 @@ impl Rack {
         self.tiles
             .iter()
             .enumerate()
-            .filter(|(i, _)| self.is_used(*i))
+            .filter(|(i, _)| self.is_index_used(*i))
             .map(|(i, &c)| (i, c))
     }
 }
@@ -69,9 +74,9 @@ mod tests {
         let expected_mask: u8 = (1 << 0) | (1 << 3);
         assert_eq!(rack.used_mask, expected_mask);
         assert_eq!(rack.len, len);
-        assert!(rack.is_used(0));
-        assert!(rack.is_used(3));
-        assert!(!rack.is_used(1));
+        assert!(rack.is_index_used(0));
+        assert!(rack.is_index_used(3));
+        assert!(!rack.is_index_used(1));
     }
 
     #[test]
@@ -96,12 +101,12 @@ mod tests {
 
         // mark index 2 as used
         rack.mark_used(2);
-        assert!(rack.is_used(2));
+        assert!(rack.is_index_used(2));
         assert_eq!(rack.len, RACK_SIZE - 1);
 
         // unmark it and ensure state is restored
         rack.unmark_used(2);
-        assert!(!rack.is_used(2));
+        assert!(!rack.is_index_used(2));
         assert_eq!(rack.len, RACK_SIZE);
     }
 }
