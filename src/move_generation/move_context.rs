@@ -142,6 +142,18 @@ impl<'a> RecursionContext<'a> {
     }
 
     #[inline]
+    /// Return the starting square index along the row/column for this anchor.
+    /// If horizontal, this is the column (anchor % BOARD_SIZE). If vertical,
+    /// this is the row (anchor / BOARD_SIZE).
+    pub fn starting_square(&self) -> usize {
+        if self.is_horizontal {
+            self.anchor % BOARD_SIZE
+        } else {
+            self.anchor / BOARD_SIZE
+        }
+    }
+
+    #[inline]
     pub fn current_tile(&self) -> char {
         self.buffer[self.depth()]
     }

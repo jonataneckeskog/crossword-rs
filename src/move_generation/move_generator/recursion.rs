@@ -53,9 +53,15 @@ impl<'a> MoveGenerator<'a> {
         if let Some(pivot_node) = ctx.pivot_child() {
             let previous_node = ctx.node;
             let action = ExtendAction::TraversePivot();
+
+            let old_depth = ctx.depth;
+
+            // Jump to the starting square before generating forwards
+            ctx.depth = ctx.starting_square() as i32;
             ctx.extend(&action, pivot_node);
             self.extend_forwards(gen_ctx, ctx);
             ctx.undo(&action, previous_node);
+            ctx.depth = old_depth;
         }
 
         // Go to the empty square before the word
@@ -77,7 +83,7 @@ impl<'a> MoveGenerator<'a> {
         }
 
         if ctx.next_tile_exists() {
-            return self.handle_empty_tile(gen_ctx, ctx);
+            return self.follow_existing_tiles(gen_ctx, ctx);
         }
 
         // Record move if conditions are met
