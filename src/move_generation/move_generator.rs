@@ -53,7 +53,7 @@ mod tests {
     use crate::move_generation::gaddag::Gaddag;
 
     #[test]
-    fn empty_board_returns_no_moves() {
+    fn empty_board_returns_moves() {
         let gaddag = Gaddag::from_wordlist(&vec!["CAT".to_string()]);
         let generator = MoveGenerator::new(&gaddag);
 
@@ -73,14 +73,12 @@ mod tests {
         assert!(!moves.is_empty(), "expected some moves on an empty board");
 
         // Ensure at least one generated move covers the center position (first play rule)
-        let centre_row = BOARD_SIZE / 2;
-        let centre_col = BOARD_SIZE / 2;
-        let centre_index = centre_row * BOARD_SIZE + centre_col;
+        let center = TOTAL_SIZE / 2;
 
         let mut covers_center = false;
         for m in moves.iter() {
             for (_, pos) in m.iter() {
-                if pos as usize == centre_index {
+                if pos as usize == center {
                     covers_center = true;
                     break;
                 }

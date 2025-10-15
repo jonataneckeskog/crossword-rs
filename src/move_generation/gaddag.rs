@@ -95,12 +95,7 @@ impl GaddagNode {
                 node = &mut node.children_ptrs[pos];
             } else {
                 // Create new child node
-                let mut new_node = Box::new(GaddagNode::new());
-
-                // Mark as a word if this is the last character in the path
-                if i == path.len() - 1 {
-                    new_node.is_word = true;
-                }
+                let new_node = Box::new(GaddagNode::new());
 
                 // Insert at the correct position to maintain mask order
                 node.children_ptrs.insert(pos, new_node);
@@ -108,6 +103,13 @@ impl GaddagNode {
 
                 // Move to the new child
                 node = &mut node.children_ptrs[pos];
+            }
+
+            // If this is the last character in the path, mark the node as a word.
+            // Do this for both newly-created and existing nodes so insertion order
+            // doesn't affect the 'is_word' flag.
+            if i == path.len() - 1 {
+                node.is_word = true;
             }
         }
     }
@@ -198,5 +200,42 @@ mod tests {
         node.insert_path(&['M', 'A', 'N']);
         let n = traverse(&node, &['M', 'A', 'N']).expect("MAN path");
         assert!(n.is_word(), "Inserted path should be marked as a word");
+    }
+
+    #[test]
+    fn pivot_paths_from_insert_gaddag() {
+        // Insert the word using insert_gaddag which creates paths containing the pivot
+        let mut root = GaddagNode::new();
+        root.insert_gaddag(&"CAT".to_string());
+
+        // i = 0 path: [PIVOT, 'C', 'A', 'T']
+        let p0 = traverse(&root, &[PIVOT, 'C', 'A', 'T']).expect("pivot-start path");
+        assert!(p0.is_word(), "Path starting with pivot should be a word");
+
+        // i = 1 path: ['C', PIVOT, 'A', 'T']
+        let p1 = traverse(&root, &['C', PIVOT, 'A', 'T']).expect("pivot-middle path");
+        assert!(p1.is_word(), "Path with pivot in middle should be a word");
+
+        // i = 3 path: ['T', 'A', 'C', PIVOT]
+        let p3 = traverse(&root, &['T', 'A', 'C', PIVOT]).expect("pivot-end path");
+        assert!(p3.is_word(), "Path ending with pivot should be a word");
+    }
+
+    #[test]
+    fn insert_ordering_marks_existing_node() {
+        // Ensure inserting a longer path first then a shorter path still marks the
+        // shorter path's endpoint as a word.
+        let mut root = GaddagNode::new();
+
+        // Insert C A T S first
+        root.insert_path(&['C', 'A', 'T', 'S']);
+        // Now insert CAT which ends on an existing node
+        root.insert_path(&['C', 'A', 'T']);
+
+        let cat = traverse(&root, &['C', 'A', 'T']).expect("CAT path after CATS");
+        assert!(
+            cat.is_word(),
+            "CAT should be marked as a word even when inserted after CATS"
+        );
     }
 }
