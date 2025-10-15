@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::constants::{BOARD_SIZE, EMPTY_TILE, PIVOT};
+use crate::constants::BOARD_SIZE;
 use crate::core::Rack;
 use crate::move_generation::{gaddag::GaddagNode, move_context::*, move_generator::MoveGenerator};
 
@@ -31,8 +31,7 @@ impl<'a> MoveGenerator<'a> {
     }
 
     pub fn extend_backwards(&self, gen_ctx: &mut GeneratorContext, ctx: &mut RecursionContext<'_>) {
-        // Initial out of bounds check
-        if ctx.depth < 0 {
+        if ctx.out_of_bounds_backwards() {
             return;
         }
 
@@ -42,16 +41,16 @@ impl<'a> MoveGenerator<'a> {
             return;
         }
 
-        if ctx.current_tile() == EMPTY_TILE {
+        if ctx.is_current_empty() {
             return self.handle_empty_tile(gen_ctx, ctx);
         }
 
-        if ctx.depth > 0 && ctx.current_tile_with_mod(-1) != EMPTY_TILE {
+        if ctx.prev_tile_exists() {
             return self.follow_existing_tiles(gen_ctx, ctx);
         }
 
         // No more backwards extentions, and we have: prefix is complete -> try extend forward
-        if let Some(pivot_node) = ctx.node.get_child(PIVOT) {
+        if let Some(pivot_node) = ctx.pivot_child() {
             let previous_node = ctx.node;
             let action = ExtendAction::TraversePivot();
             ctx.extend(&action, pivot_node);
@@ -69,16 +68,15 @@ impl<'a> MoveGenerator<'a> {
     }
 
     pub fn extend_forwards(&self, gen_ctx: &mut GeneratorContext, ctx: &mut RecursionContext<'_>) {
-        // Initial bounds check
-        if ctx.depth() >= BOARD_SIZE {
+        if ctx.out_of_bounds_forwards() {
             return;
         }
 
-        if ctx.current_tile() == EMPTY_TILE {
+        if ctx.is_current_empty() {
             return self.handle_empty_tile(gen_ctx, ctx);
         }
 
-        if ctx.depth() + 1 < BOARD_SIZE && ctx.current_tile_with_mod(1) != EMPTY_TILE {
+        if ctx.next_tile_exists() {
             return self.handle_empty_tile(gen_ctx, ctx);
         }
 

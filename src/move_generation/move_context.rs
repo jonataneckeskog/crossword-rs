@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use crate::constants::{BOARD_SIZE, BoardPosition, EMPTY_TILE, RACK_SIZE, TOTAL_SIZE};
+use crate::constants::{BOARD_SIZE, BoardPosition, EMPTY_TILE, PIVOT, RACK_SIZE, TOTAL_SIZE};
 use crate::core::{Board, CrosswordMove, Rack};
 use crate::move_generation::gaddag::GaddagNode;
 
@@ -94,6 +94,42 @@ impl<'a> RecursionContext<'a> {
     // Returns depth as a usize (for convenience)
     pub fn depth(&self) -> usize {
         self.depth as usize
+    }
+
+    #[inline]
+    /// True when the depth is negative (used for backwards bounds checks)
+    pub fn out_of_bounds_backwards(&self) -> bool {
+        self.depth < 0
+    }
+
+    #[inline]
+    /// True when the depth index has reached or passed the board size (for forwards checks)
+    pub fn out_of_bounds_forwards(&self) -> bool {
+        self.depth() >= BOARD_SIZE
+    }
+
+    #[inline]
+    /// Convenience: is the current buffer position empty
+    pub fn is_current_empty(&self) -> bool {
+        self.current_tile() == EMPTY_TILE
+    }
+
+    #[inline]
+    /// Is there an existing tile immediately before the current depth?
+    pub fn prev_tile_exists(&self) -> bool {
+        self.depth > 0 && self.current_tile_with_mod(-1) != EMPTY_TILE
+    }
+
+    #[inline]
+    /// Is there an existing tile immediately after the current depth?
+    pub fn next_tile_exists(&self) -> bool {
+        (self.depth() + 1) < BOARD_SIZE && self.current_tile_with_mod(1) != EMPTY_TILE
+    }
+
+    #[inline]
+    /// Return the pivot child node if present (small helper to clarify intent)
+    pub fn pivot_child(&self) -> Option<&'a GaddagNode> {
+        self.node.get_child(PIVOT)
     }
 
     #[inline]
