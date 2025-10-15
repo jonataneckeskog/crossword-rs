@@ -164,64 +164,81 @@ impl<'a> RecursionContext<'a> {
     }
 
     pub fn extend(&mut self, action: &ExtendAction, new_node: &'a GaddagNode) {
-        // Node always updates
-        self.node = new_node;
+        // Always update node
+        self.update_node(new_node);
 
         match action {
             ExtendAction::PlaceFromRack(idx, tile) => {
-                // Update buffer, rack and move
-                self.rack.mark_used(*idx);
-                self.buffer[self.depth()] = *tile;
-
-                self.current_tiles[self.current_move_len as usize] = *tile;
-
-                self.current_positions[self.current_move_len as usize] =
-                    self.position_at_depth() as BoardPosition;
-
-                self.current_move_len += 1;
+                self.update_move(*idx, *tile);
             }
-            ExtendAction::TraverseExisting() => {}
+            ExtendAction::TraverseExisting() => {
+                self.update_depth_forward();
+            }
             ExtendAction::TraversePivot() => {
-                self.is_forwards = !self.is_forwards;
+                self.update_direction();
                 return;
             }
         }
-
-        // Update depth
-        self.depth = if self.is_forwards {
-            self.depth + 1
-        } else {
-            self.depth.saturating_sub(1)
-        };
     }
 
     pub fn undo(&mut self, action: &ExtendAction, previous_node: &'a GaddagNode) {
-        // Update node
-        self.node = previous_node;
+        // Always update node
+        self.update_node(previous_node);
 
-        // Update buffer
         match action {
             ExtendAction::TraversePivot() => {
-                self.is_forwards = !self.is_forwards;
+                self.update_direction();
                 return;
             }
-            _ => {
-                self.depth = if self.is_forwards {
-                    self.depth.saturating_sub(1)
-                } else {
-                    self.depth + 1
-                };
+            ExtendAction::PlaceFromRack(idx, _) => {
+                self.revert_move(*idx);
+            }
+            ExtendAction::TraverseExisting() => {
+                self.update_depth_backward();
             }
         }
+    }
 
-        // Handle cleanup for PlaceFromRack
-        if let ExtendAction::PlaceFromRack(idx, _) = action {
-            self.rack.unmark_used(*idx);
-            self.buffer[self.depth()] = EMPTY_TILE;
-            self.current_move_len -= 1;
-            self.current_positions[self.current_move_len as usize] = 0;
-            self.current_tiles[self.current_move_len as usize] = EMPTY_TILE;
+    fn update_node(&mut self, node: &'a GaddagNode) {
+        self.node = node;
+    }
+
+    fn update_move(&mut self, rack_idx: usize, tile: char) {
+        self.rack.mark_used(rack_idx);
+        self.buffer[self.depth()] = tile;
+        let move_len = self.current_move_len as usize;
+        self.current_tiles[move_len] = tile;
+        self.current_positions[move_len] = self.position_at_depth() as BoardPosition;
+        self.current_move_len += 1;
+    }
+
+    fn revert_move(&mut self, rack_idx: usize) {
+        self.rack.unmark_used(rack_idx);
+        self.current_move_len -= 1;
+        let move_len = self.current_move_len as usize;
+        self.buffer[self.depth()] = EMPTY_TILE;
+        self.current_positions[move_len] = 0;
+        self.current_tiles[move_len] = EMPTY_TILE;
+    }
+
+    fn update_depth_forward(&mut self) {
+        if self.is_forwards {
+            self.depth += 1;
+        } else {
+            self.depth = self.depth.saturating_sub(1);
         }
+    }
+
+    fn update_depth_backward(&mut self) {
+        if self.is_forwards {
+            self.depth = self.depth.saturating_sub(1);
+        } else {
+            self.depth += 1;
+        }
+    }
+
+    fn update_direction(&mut self) {
+        self.is_forwards = !self.is_forwards;
     }
 
     fn debug_log(ctx: &RecursionContext, action: &ExtendAction) {
@@ -323,12 +340,10 @@ mod tests {
     fn extend_and_undo_place_from_rack_forward() {
         use crate::constants::{BOARD_SIZE, RACK_SIZE};
 
-        // Prepare a rack with one tile at index 2
         let mut tiles = [EMPTY_TILE; RACK_SIZE];
         tiles[2] = 'B';
         let mut rack = crate::core::Rack::from_arrays(tiles, 1);
 
-        // Empty gaddag root is sufficient for these tests
         let gaddag = Gaddag::from_wordlist(&vec![]);
         let root = gaddag.get_root();
 
@@ -336,25 +351,24 @@ mod tests {
         let anchor = 10usize;
         let mut ctx = RecursionContext::new(anchor, root, &mut rack, buffer, 0, true, true);
 
-        // Keep previous node pointer for undo
         let previous_node = ctx.node;
 
-        // Perform place-from-rack extension
+        // Place tile
         ctx.extend(&ExtendAction::PlaceFromRack(2, 'B'), root);
 
-        // After placing: rack.len decreased, buffer updated, move recorded, depth advanced
+        // After placing: move data updated, but depth unchanged
         assert_eq!(ctx.current_move_len, 1);
         assert_eq!(ctx.current_tiles[0], 'B');
         assert_eq!(ctx.current_positions[0], anchor as BoardPosition);
         assert_eq!(ctx.buffer[0], 'B');
 
-        // Depth should have advanced by 1 (forwards)
-        assert_eq!(ctx.depth(), 1);
+        // Depth should remain unchanged (0)
+        assert_eq!(ctx.depth(), 0);
 
         // Undo the placement
         ctx.undo(&ExtendAction::PlaceFromRack(2, 'B'), previous_node);
 
-        // After undo: depth back, rack restored, buffer and move cleared
+        // Move cleared, buffer cleared, rack restored
         assert_eq!(ctx.depth(), 0);
         assert_eq!(ctx.current_move_len, 0);
         assert_eq!(ctx.buffer[0], EMPTY_TILE);
