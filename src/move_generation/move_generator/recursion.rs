@@ -42,7 +42,7 @@ impl<'a> MoveGenerator<'a> {
         }
 
         if ctx.is_current_empty() {
-            return self.handle_empty_tile(gen_ctx, ctx);
+            return self.handle_empty_tile(gen_ctx, ctx); // Does not change the depth
         }
 
         if ctx.prev_tile_exists() {
@@ -62,6 +62,10 @@ impl<'a> MoveGenerator<'a> {
             self.extend_forwards(gen_ctx, ctx);
             ctx.undo(&action, previous_node);
             ctx.depth = old_depth;
+        }
+
+        if ctx.rack.is_empty() {
+            return;
         }
 
         // Go to the empty square before the word
@@ -87,8 +91,12 @@ impl<'a> MoveGenerator<'a> {
         }
 
         // Record move if conditions are met
-        if ctx.node.is_word() {
+        if ctx.node.is_word() && ctx.current_move_len > 0 {
             self.record_move(gen_ctx, ctx);
+        }
+
+        if ctx.rack.is_empty() {
+            return;
         }
 
         // Go to the next (empty) square without updating node
