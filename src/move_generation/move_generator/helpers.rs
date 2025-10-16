@@ -100,7 +100,11 @@ impl<'a> MoveGenerator<'a> {
                 let previous_node = ctx.node;
                 let action = ExtendAction::PlaceFromRack(idx, tile);
                 ctx.extend(&action, next_node);
-                self.extend_backwards(gen_ctx, ctx);
+                if ctx.is_forwards {
+                    self.extend_forwards(gen_ctx, ctx);
+                } else {
+                    self.extend_backwards(gen_ctx, ctx);
+                }
                 ctx.undo(&action, previous_node);
             }
         }
@@ -117,7 +121,11 @@ impl<'a> MoveGenerator<'a> {
             let previous_node = ctx.node;
             let action: ExtendAction = ExtendAction::TraverseExisting();
             ctx.extend(&action, next_node);
-            self.extend_backwards(gen_ctx, ctx);
+            if ctx.is_forwards {
+                    self.extend_forwards(gen_ctx, ctx);
+            } else {
+                self.extend_backwards(gen_ctx, ctx);
+            }
             ctx.undo(&action, previous_node);
         }
     }

@@ -135,9 +135,13 @@ impl<'a> RecursionContext<'a> {
     #[inline]
     pub fn position_at_depth(&self) -> usize {
         if self.is_horizontal {
-            self.anchor + self.depth()
+            // depth is the current column, anchor row is fixed
+            let row = self.anchor / BOARD_SIZE;
+            row * BOARD_SIZE + self.depth()
         } else {
-            self.anchor + BOARD_SIZE * self.depth()
+            // depth is the current row, anchor column is fixed
+            let col = self.anchor % BOARD_SIZE;
+            self.depth() * BOARD_SIZE + col
         }
     }
 
@@ -306,22 +310,21 @@ mod tests {
         buffer[1] = EMPTY_TILE;
         buffer[2] = 'Y';
 
-        // depth = 1 -> prev exists (index 0), next exists (index 2)
-        let ctx = RecursionContext::new(5, root, &mut rack, buffer, 1, true, false);
+        // anchor = 1 -> both prev and next is full
+        let ctx = RecursionContext::new(1, root, &mut rack, buffer, 1, true, false);
+        // current at depth 1 is EMPTY_TILE
+        assert!(ctx.is_current_empty());
         assert!(ctx.prev_tile_exists());
         assert!(ctx.next_tile_exists());
 
-        // current at depth 1 is EMPTY_TILE
-        assert!(ctx.is_current_empty());
-
         // position_at_depth respects horizontal/vertical
         let pos_h =
-            RecursionContext::new(5, root, &mut rack, buffer, 2, true, false).position_at_depth();
-        assert_eq!(pos_h, 5 + 2);
+            RecursionContext::new(5, root, &mut rack, buffer, 8, true, false).position_at_depth();
+        assert_eq!(pos_h, 8);
 
         let pos_v =
-            RecursionContext::new(5, root, &mut rack, buffer, 2, false, false).position_at_depth();
-        assert_eq!(pos_v, 5 + BOARD_SIZE * 2);
+            RecursionContext::new(5, root, &mut rack, buffer, 8, false, false).position_at_depth();
+        assert_eq!(pos_v, BOARD_SIZE * 8 + 5);
     }
 
     #[test]
@@ -348,8 +351,9 @@ mod tests {
         let root = gaddag.get_root();
 
         let buffer = [EMPTY_TILE; BOARD_SIZE];
-        let anchor = 10usize;
-        let mut ctx = RecursionContext::new(anchor, root, &mut rack, buffer, 0, true, true);
+        let anchor = 10;
+        let mut ctx =
+            RecursionContext::new(anchor, root, &mut rack, buffer, anchor as i32, true, true);
 
         let previous_node = ctx.node;
 
@@ -360,18 +364,18 @@ mod tests {
         assert_eq!(ctx.current_move_len, 1);
         assert_eq!(ctx.current_tiles[0], 'B');
         assert_eq!(ctx.current_positions[0], anchor as BoardPosition);
-        assert_eq!(ctx.buffer[0], 'B');
+        assert_eq!(ctx.buffer[anchor], 'B');
 
-        // Depth should remain unchanged (0)
-        assert_eq!(ctx.depth(), 0);
+        // Depth should remain unchanged (10)
+        assert_eq!(ctx.depth(), anchor);
 
         // Undo the placement
         ctx.undo(&ExtendAction::PlaceFromRack(2, 'B'), previous_node);
 
         // Move cleared, buffer cleared, rack restored
-        assert_eq!(ctx.depth(), 0);
+        assert_eq!(ctx.depth(), anchor);
         assert_eq!(ctx.current_move_len, 0);
-        assert_eq!(ctx.buffer[0], EMPTY_TILE);
+        assert_eq!(ctx.buffer[anchor], EMPTY_TILE);
         assert_eq!(ctx.current_tiles[0], EMPTY_TILE);
         assert_eq!(ctx.current_positions[0], 0);
     }

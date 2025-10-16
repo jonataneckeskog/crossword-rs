@@ -75,8 +75,9 @@ mod tests {
         // Ensure at least one generated move covers the center position (first play rule)
         let center = TOTAL_SIZE / 2;
 
-        let mut covers_center = false;
         for m in moves.iter() {
+            let mut covers_center = false;
+
             for (_, pos) in m.iter() {
                 if pos as usize == center {
                     covers_center = true;
@@ -86,11 +87,14 @@ mod tests {
             if covers_center {
                 break;
             }
+
+            println!("Buffer: {:?}", m);
+
+            assert!(
+                covers_center,
+                "expected all moves to cover the center square"
+            );
         }
-        assert!(
-            covers_center,
-            "expected at least one move to cover the center square"
-        );
     }
 
     #[test]

@@ -90,8 +90,11 @@ impl<'a> MoveGenerator<'a> {
             return self.follow_existing_tiles(gen_ctx, ctx);
         }
 
+        println!("Buffer: {:?}", ctx.buffer);
+
         // Record move if conditions are met
         if ctx.node.is_word() && ctx.current_move_len > 0 {
+            println!("Move: {:?}, Buffer {:?}", ctx.current_positions, ctx.buffer);
             self.record_move(gen_ctx, ctx);
         }
 
