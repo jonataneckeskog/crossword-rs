@@ -78,4 +78,8 @@ impl Board {
 
         false
     }
+
+    pub fn increase_tile_count(&mut self) {
+        self.tile_count += 1;
+    }
 }

@@ -168,6 +168,7 @@ mod tests {
         board.place('C', 8);
         board.place('A', 9);
         board.place('T', 10);
+        board.increase_tile_count(); // Making sure the generator doesn't default to empty board
 
         let mut tiles = [EMPTY_TILE; RACK_SIZE];
         tiles[0] = 'S';
