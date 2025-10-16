@@ -38,56 +38,27 @@ impl Gaddag {
     }
 
     /// Check whether the exact word exists in the GADDAG.
-    ///
-    /// This tests every GADDAG path representation for `word` by inserting the
-    /// pivot at every possible position: for i in 0..=len, the path is
-    /// reversed(prefix) + pivot + suffix. If any such path ends at a node
-    /// marked as a word, the function returns true.
     pub fn is_word(&self, word: &str) -> bool {
         let chars: Vec<char> = word.chars().collect();
 
-        // Try pivot at every possible split position
-        for i in 0..=chars.len() {
-            let mut node = self.get_root();
-            let mut ok = true;
+        let mut node = self.get_root();
 
-            // reversed prefix (chars[..i].rev())
-            for &c in chars[..i].iter().rev() {
-                if let Some(child) = node.get_child(c) {
-                    node = child;
-                } else {
-                    ok = false;
-                    break;
-                }
-            }
-
-            if !ok {
-                continue;
-            }
-
-            // pivot
-            if let Some(child) = node.get_child(PIVOT) {
+        for &c in chars.iter().rev() {
+            if let Some(child) = node.get_child(c) {
                 node = child;
             } else {
-                continue;
-            }
-
-            // suffix (chars[i..])
-            for &c in &chars[i..] {
-                if let Some(child) = node.get_child(c) {
-                    node = child;
-                } else {
-                    ok = false;
-                    break;
-                }
-            }
-
-            if ok && node.is_word() {
-                return true;
+                return false;
             }
         }
 
-        false
+        // Check pivot child (canonical representation uses pivot at end)
+        if let Some(child) = node.get_child(PIVOT) {
+            node = child;
+        } else {
+            return false;
+        }
+
+        node.is_word()
     }
 }
 
