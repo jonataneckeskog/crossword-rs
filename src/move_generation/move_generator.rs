@@ -158,4 +158,30 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_extend_word() {
+        let gaddag = Gaddag::from_wordlist(&vec!["CAT".to_string(), "CATS".to_string()]);
+        let generator = MoveGenerator::new(&gaddag);
+
+        let mut board = Board::new();
+        board.place('C', 8);
+        board.place('A', 9);
+        board.place('T', 10);
+
+        let mut tiles = [EMPTY_TILE; RACK_SIZE];
+        tiles[0] = 'S';
+        let mut rack = Rack::from_arrays(tiles, 1);
+
+        let moves = generator.generate_all_moves(&board, &mut rack);
+
+        assert!(!moves.is_empty());
+
+        // Check that some move placed 'S' at position 11
+        let found_s = moves
+            .iter()
+            .any(|m| m.iter().any(|(tile, i)| i == 11 && tile == 'S'));
+
+        assert!(found_s, "Expected 'S' to be placed at position 11");
+    }
 }
